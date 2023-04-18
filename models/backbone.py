@@ -89,12 +89,14 @@ class BackboneBase(nn.Module):
 class Backbone(BackboneBase):
     """ResNet backbone with frozen BatchNorm."""
     def __init__(self, name: str,
-                 train_backbone: bool,
+                 train_backbone: bool, #是否微调backbone
                  return_interm_layers: bool,
                  dilation: bool):
-        backbone = getattr(torchvision.models, name)(
+        backbone = getattr(torchvision.models, name)(          #根据模型名字得到对应模型,从torchvision下载并加载了resnet50的预训练权重
             replace_stride_with_dilation=[False, False, dilation],
             pretrained=is_main_process(), norm_layer=FrozenBatchNorm2d)
+#TODO：实际上不需要该权重，因为DETR中包含了该权重https://pytorch.org/vision/stable/models.html，可以直接用不含权重的resnet50？
+#m1 = get_model("resnet50", weights=None)
         num_channels = 512 if name in ('resnet18', 'resnet34') else 2048
         super().__init__(backbone, train_backbone, num_channels, return_interm_layers)
 

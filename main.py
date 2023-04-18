@@ -9,7 +9,7 @@ import argparse
 import datetime
 import json
 import random
-import time
+#import time
 from pathlib import Path
 
 import numpy as np
@@ -21,13 +21,15 @@ import util.misc as utils
 from datasets import build_dataset, get_coco_api_from_dataset
 from engine import evaluate, train_one_epoch, evaluate_hoi
 from models import build_model
-
+#################
+import wandb
+#################
 
 def get_args_parser():
     parser = argparse.ArgumentParser('Set transformer detector', add_help=False)
     parser.add_argument('--lr', default=1e-4, type=float)
     parser.add_argument('--lr_backbone', default=1e-5, type=float)
-    parser.add_argument('--batch_size', default=2, type=int)
+    parser.add_argument('--batch_size', default=2, type=int) #2 images per GPU,batchsize=16
     parser.add_argument('--weight_decay', default=1e-4, type=float)
     parser.add_argument('--epochs', default=150, type=int)
     parser.add_argument('--lr_drop', default=100, type=int)
@@ -62,7 +64,7 @@ def get_args_parser():
                         help="Number of query slots")
     parser.add_argument('--pre_norm', action='store_true')
 
-    # * Segmentation
+    # * Segmentation TODO:delete it?
     parser.add_argument('--masks', action='store_true',
                         help="Train segmentation head if the flag is provided")
 
@@ -105,7 +107,7 @@ def get_args_parser():
                         help="Relative classification weight of the no-object class")
 
     # dataset parameters
-    parser.add_argument('--dataset_file', default='coco')
+    parser.add_argument('--dataset_file', default='coco') #vcoco
     parser.add_argument('--coco_path', type=str)
     parser.add_argument('--coco_panoptic_path', type=str)
     parser.add_argument('--remove_difficult', action='store_true')
@@ -118,7 +120,7 @@ def get_args_parser():
     parser.add_argument('--seed', default=42, type=int)
     parser.add_argument('--resume', default='', help='resume from checkpoint')
     parser.add_argument('--start_epoch', default=0, type=int, metavar='N',
-                        help='start epoch')
+                        help='start epoch') #用于继续训练
     parser.add_argument('--eval', action='store_true')
     parser.add_argument('--num_workers', default=2, type=int)
 
@@ -126,14 +128,19 @@ def get_args_parser():
     parser.add_argument('--world_size', default=1, type=int,
                         help='number of distributed processes')
     parser.add_argument('--dist_url', default='env://', help='url used to set up distributed training')
+#################
+    parser.add_argument('--wandb', action='store_true',
+                        help="Use wandb if the flag is provided")
+###############
     return parser
 
 
 def main(args):
+
     utils.init_distributed_mode(args)
     print("git:\n  {}\n".format(utils.get_sha()))
 
-    if args.frozen_weights is not None:
+    if args.frozen_weights is not None: #TODO:delete it?
         assert args.masks, "Frozen training is meant for segmentation only"
     print(args)
 
@@ -145,7 +152,7 @@ def main(args):
     np.random.seed(seed)
     random.seed(seed)
 
-    model, criterion, postprocessors = build_model(args)
+    model, criterion, postprocessors = build_model(args) #这里初始化了模型结构和参数，但还未使用预训练权重
     model.to(device)
 
     model_without_ddp = model
@@ -184,7 +191,7 @@ def main(args):
     data_loader_val = DataLoader(dataset_val, args.batch_size, sampler=sampler_val,
                                  drop_last=False, collate_fn=utils.collate_fn, num_workers=args.num_workers)
 
-    if not args.hoi:
+    if not args.hoi: #TODO: delete
         if args.dataset_file == "coco_panoptic":
             # We also evaluate AP during panoptic training, on original coco DS
             coco_val = datasets.coco.build("val", args)
@@ -209,22 +216,40 @@ def main(args):
             lr_scheduler.load_state_dict(checkpoint['lr_scheduler'])
             args.start_epoch = checkpoint['epoch'] + 1
     elif args.pretrained:
-        checkpoint = torch.load(args.pretrained, map_location='cpu')
+        checkpoint = torch.load(args.pretrained, map_location='cpu')      #这里加载pretrained model
         model_without_ddp.load_state_dict(checkpoint['model'], strict=False)
 
     if args.eval:
         if args.hoi:
             test_stats = evaluate_hoi(args.dataset_file, model, postprocessors, data_loader_val, args.subject_category_id, device)
             return
-        else:
+        else: #TODO:delete?
             test_stats, coco_evaluator = evaluate(model, criterion, postprocessors,
                                                   data_loader_val, base_ds, device, args.output_dir)
             if args.output_dir:
                 utils.save_on_master(coco_evaluator.coco_eval["bbox"].eval, output_dir / "eval.pth")
             return
+############################## start a new wandb run to track this script
+    if args.rank==0 and args.wandb:
+        wandb.init(
+            # set the wandb project where this run will be logged
+            project=f"qpic_resnet50_{args.dataset_file}",
+            # track hyperparameters and run metadata
+            config=args
+        )
+        wandb.config.update({"num_parameters":n_parameters})
+##########################
+
+#####timing
 
     print("Start training")
+    start = torch.cuda.Event(enable_timing=True)
+    end = torch.cuda.Event(enable_timing=True)
+    start.record()
+#####
+    '''#original timing
     start_time = time.time()
+    '''
     for epoch in range(args.start_epoch, args.epochs):
         if args.distributed:
             sampler_train.set_epoch(epoch)
@@ -233,7 +258,7 @@ def main(args):
             args.clip_max_norm)
         lr_scheduler.step()
         if args.output_dir:
-            checkpoint_paths = [output_dir / 'checkpoint.pth']
+            checkpoint_paths = [output_dir / 'checkpoint.pth'] #不断覆盖的checkpoint
             # extra checkpoint before LR drop and every 100 epochs
             if (epoch + 1) % args.lr_drop == 0 or (epoch + 1) % 100 == 0:
                 checkpoint_paths.append(output_dir / f'checkpoint{epoch:04}.pth')
@@ -259,12 +284,12 @@ def main(args):
                      'epoch': epoch,
                      'n_parameters': n_parameters}
 
-        if args.output_dir and utils.is_main_process():
+        '''if args.output_dir and utils.is_main_process():
             with (output_dir / "log.txt").open("a") as f:
                 f.write(json.dumps(log_stats) + "\n")
 
             # for evaluation logs
-            if coco_evaluator is not None:
+            if coco_evaluator is not None:             #TODO:delete?
                 (output_dir / 'eval').mkdir(exist_ok=True)
                 if "bbox" in coco_evaluator.coco_eval:
                     filenames = ['latest.pth']
@@ -273,10 +298,32 @@ def main(args):
                     for name in filenames:
                         torch.save(coco_evaluator.coco_eval["bbox"].eval,
                                    output_dir / "eval" / name)
+        '''
+#####################
+        if args.wandb and utils.is_main_process(): #args.rank==0
+            wandb.log(log_stats)
 
-    total_time = time.time() - start_time
-    total_time_str = str(datetime.timedelta(seconds=int(total_time)))
-    print('Training time {}'.format(total_time_str))
+    end.record()
+    # Waits for everything to finish running
+    torch.cuda.synchronize()
+
+    total_time=start.elapsed_time(end)  # milliseconds
+    total_time_str = str(datetime.timedelta(milliseconds=int(total_time)))
+    print(total_time_str)
+    if args.wandb and utils.is_main_process(): #args.rank==0
+        wandb.log({"total_time":total_time_str})
+    #with (output_dir / "time.txt").open("a") as f:
+        #f.write(total_time_str+"\n")
+
+    if args.rank==0 and args.wandb:
+        wandb.save(f'{output_dir}/*',policy='end')
+        wandb.finish()
+##############################
+    '''orinial timing
+        total_time = time.time() - start_time
+        total_time_str = str(datetime.timedelta(seconds=int(total_time)))
+        print('Training time {}'.format(total_time_str))
+    '''
 
 
 if __name__ == '__main__':
@@ -285,3 +332,5 @@ if __name__ == '__main__':
     if args.output_dir:
         Path(args.output_dir).mkdir(parents=True, exist_ok=True)
     main(args)
+
+

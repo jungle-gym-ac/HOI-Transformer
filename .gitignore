@@ -2,4 +2,5 @@
 data/**
 params/**
 logs/**
+wandb/**
 !.gitkeep

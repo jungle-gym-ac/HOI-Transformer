@@ -25,10 +25,30 @@ class HICODetection(torch.utils.data.Dataset):
         self.img_folder = img_folder
         with open(anno_file, 'r') as f:
             self.annotations = json.load(f)
+
+
+        #print(annotation[10])
+        #{'file_name': 'HICO_train2015_00000011.jpg',
+        # 'img_id': 11,
+        # 'annotations': [{'bbox': [509, 169, 637, 392], 'category_id': 1},
+        #                 {'bbox': [583, 200, 639, 282], 'category_id': 27},
+        #                 {'bbox': [510, 171, 634, 387], 'category_id': 1},
+        #                 {'bbox': [564, 198, 636, 291], 'category_id': 27}],
+        # 'hoi_annotation': [
+        #                 {'subject_id': 0, 'object_id': 1, 'category_id': 9, 'hoi_category_id': 209},
+        #                 {'subject_id': 2, 'object_id': 3, 'category_id': 115, 'hoi_category_id': 213}]
+        # }
+
+        #subject_id和object_id是其在'annotations'中的下标
+        #'annotations'中的Category_id为物体类别, (1~80)
+        #'category_id'为verb category,(1-117)
+        # hoi_catetory_id 为HOI triplet category，实际上没有使用，范围 1-600
         self._transforms = transforms
 
         self.num_queries = num_queries
 
+        #COCO实际上有91个头，因为COCO segmentation实际上有91 stuff categories+1个"unlabeled" class
+        #COCO 80个object class在所有90个class中的下标
         self._valid_obj_ids = (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 13,
                                14, 15, 16, 17, 18, 19, 20, 21, 22, 23,
                                24, 25, 27, 28, 31, 32, 33, 34, 35, 36,
@@ -37,7 +57,7 @@ class HICODetection(torch.utils.data.Dataset):
                                58, 59, 60, 61, 62, 63, 64, 65, 67, 70,
                                72, 73, 74, 75, 76, 77, 78, 79, 80, 81,
                                82, 84, 85, 86, 87, 88, 89, 90)
-        self._valid_verb_ids = list(range(1, 118))
+        self._valid_verb_ids = list(range(1, 118))#？？？
 
         if img_set == 'train':
             self.ids = []
@@ -47,7 +67,7 @@ class HICODetection(torch.utils.data.Dataset):
                         break
                 else:
                     self.ids.append(idx)
-        else:
+        else:#val
             self.ids = list(range(len(self.annotations)))
 
     def __len__(self):
@@ -65,6 +85,7 @@ class HICODetection(torch.utils.data.Dataset):
         boxes = [obj['bbox'] for obj in img_anno['annotations']]
         # guard against no boxes via resizing
         boxes = torch.as_tensor(boxes, dtype=torch.float32).reshape(-1, 4)
+
 
         if self.img_set == 'train':
             # Add index for confirming which boxes are kept after image transformation
@@ -99,6 +120,7 @@ class HICODetection(torch.utils.data.Dataset):
             sub_obj_pairs = []
             for hoi in img_anno['hoi_annotation']:
                 if hoi['subject_id'] not in kept_box_indices or hoi['object_id'] not in kept_box_indices:
+                #Resize等变换后，物体bounding box消失
                     continue
                 sub_obj_pair = (hoi['subject_id'], hoi['object_id'])
                 if sub_obj_pair in sub_obj_pairs:
@@ -138,7 +160,7 @@ class HICODetection(torch.utils.data.Dataset):
 
         return img, target
 
-    def set_rare_hois(self, anno_file):
+    def set_rare_hois(self, anno_file): #rare和none-rare HOI triplet classes
         with open(anno_file, 'r') as f:
             annotations = json.load(f)
 
@@ -147,6 +169,7 @@ class HICODetection(torch.utils.data.Dataset):
             hois = img_anno['hoi_annotation']
             bboxes = img_anno['annotations']
             for hoi in hois:
+                #triplet class=(object class,human class(其实都是1),verb class)
                 triplet = (self._valid_obj_ids.index(bboxes[hoi['subject_id']]['category_id']),
                            self._valid_obj_ids.index(bboxes[hoi['object_id']]['category_id']),
                            self._valid_verb_ids.index(hoi['category_id']))
@@ -212,4 +235,5 @@ def build(image_set, args):
     if image_set == 'val':
         dataset.set_rare_hois(PATHS['train'][1])
         dataset.load_correct_mat(CORRECT_MAT_PATH)
+        #corre_hico.npy is a binary mask, if the ith category of object  and the  jth category of verb can form an HOI label, the value at location (i, j) of corre_hico.npy is set to 1, else 0.
     return dataset

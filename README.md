@@ -21,6 +21,9 @@ Our implementation uses external libraries such as NumPy and PyTorch. You can re
 ```
 pip install numpy
 pip install -r requirements.txt
+#安装requirements的内容直接一行行安装！
+安装最新版的torch和torchvision，基本兼容，除了
+cocoapi那行会报错，直接pip install pycocoapi
 ```
 Note that this command may dump errors during installing pycocotools, but the errors can be ignored.
 

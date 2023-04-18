@@ -309,11 +309,13 @@ class MLP(nn.Module):
 
 
 def build(args):
+    ##########DETR TRAINING,  NOT for HOI！
     num_classes = 20 if args.dataset_file != 'coco' else 91
     if args.dataset_file == "coco_panoptic":
         num_classes = 250
-    device = torch.device(args.device)
+    #########################
 
+    device = torch.device(args.device)
     backbone = build_backbone(args)
 
     transformer = build_transformer(args)
@@ -327,7 +329,7 @@ def build(args):
             num_queries=args.num_queries,
             aux_loss=args.aux_loss,
         )
-    else:
+    else:#DETR TRAINING,  NOT for HOI！
         model = DETR(
             backbone,
             transformer,
@@ -342,8 +344,8 @@ def build(args):
     if args.hoi:
         weight_dict['loss_obj_ce'] = args.obj_loss_coef
         weight_dict['loss_verb_ce'] = args.verb_loss_coef
-        weight_dict['loss_sub_bbox'] = args.bbox_loss_coef
-        weight_dict['loss_obj_bbox'] = args.bbox_loss_coef
+        weight_dict['loss_sub_bbox'] = args.bbox_loss_coef#subject bounding box
+        weight_dict['loss_obj_bbox'] = args.bbox_loss_coef#object bounding box
         weight_dict['loss_sub_giou'] = args.giou_loss_coef
         weight_dict['loss_obj_giou'] = args.giou_loss_coef
     else:
@@ -365,7 +367,7 @@ def build(args):
         criterion = SetCriterionHOI(args.num_obj_classes, args.num_queries, args.num_verb_classes, matcher=matcher,
                                     weight_dict=weight_dict, eos_coef=args.eos_coef, losses=losses,
                                     verb_loss_type=args.verb_loss_type)
-    else:
+    else: #DETR training
         losses = ['labels', 'boxes', 'cardinality']
         if args.masks:
             losses += ["masks"]
