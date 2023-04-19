@@ -35,4 +35,5 @@ python generate_vcoco_official.py \
         --hoi_path data/v-coco
 
 #test on vcoco test set
-python "data/v-coco/test_vcoco.py"
+PYTHONPATH=data/v-coco \
+    python "scripts/test_vcoco.py"
