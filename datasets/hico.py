@@ -41,7 +41,7 @@ class HICODetection(torch.utils.data.Dataset):
 
         #subject_id和object_id是其在'annotations'中的下标
         #'annotations'中的Category_id为物体类别, (1~80)
-        #'category_id'为verb category,(1-117)
+        #'category_id'为verb category,(1-117),本工作使用
         # hoi_catetory_id 为HOI triplet category，实际上没有使用，范围 1-600
         self._transforms = transforms
 
