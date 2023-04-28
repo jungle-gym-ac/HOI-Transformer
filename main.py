@@ -19,7 +19,9 @@ from torch.utils.data import DataLoader, DistributedSampler
 import datasets
 import util.misc as utils
 from datasets import build_dataset, get_coco_api_from_dataset
+
 from engine import evaluate, train_one_epoch, evaluate_hoi
+#TODO: delete import "evaluate"?
 from models import build_model
 #################
 import wandb
@@ -69,8 +71,12 @@ def get_args_parser():
                         help="Train segmentation head if the flag is provided")
 
     # HOI
+    ########TODO:delete?
+    '''
     parser.add_argument('--hoi', action='store_true',
                         help="Train for HOI if the flag is provided")
+    '''
+    ###########
     parser.add_argument('--num_obj_classes', type=int, default=80,
                         help="Number of object classes")
     parser.add_argument('--num_verb_classes', type=int, default=117,
@@ -160,7 +166,6 @@ def main(args):
         model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[args.gpu])
         model_without_ddp = model.module
     n_parameters = sum(p.numel() for p in model.parameters() if p.requires_grad)
-    print('number of params:', n_parameters)
 
     param_dicts = [
         {"params": [p for n, p in model_without_ddp.named_parameters() if "backbone" not in n and p.requires_grad]},
@@ -190,15 +195,16 @@ def main(args):
                                    collate_fn=utils.collate_fn, num_workers=args.num_workers)
     data_loader_val = DataLoader(dataset_val, args.batch_size, sampler=sampler_val,
                                  drop_last=False, collate_fn=utils.collate_fn, num_workers=args.num_workers)
-
-    if not args.hoi: #TODO: delete
+    #TODO: delete
+    '''
+    if not args.hoi:
         if args.dataset_file == "coco_panoptic":
             # We also evaluate AP during panoptic training, on original coco DS
             coco_val = datasets.coco.build("val", args)
             base_ds = get_coco_api_from_dataset(coco_val)
         else:
             base_ds = get_coco_api_from_dataset(dataset_val)
-
+    '''
     if args.frozen_weights is not None:
         checkpoint = torch.load(args.frozen_weights, map_location='cpu')
         model_without_ddp.detr.load_state_dict(checkpoint['model'])
@@ -219,16 +225,22 @@ def main(args):
         checkpoint = torch.load(args.pretrained, map_location='cpu')      #这里加载pretrained model
         model_without_ddp.load_state_dict(checkpoint['model'], strict=False)
 
+    #DO EVAL instead of training
     if args.eval:
-        if args.hoi:
+        test_stats = evaluate_hoi(args.dataset_file, model, postprocessors, data_loader_val, args.subject_category_id, device)
+        return
+
+        #TODO:delete?
+        '''if args.hoi:
             test_stats = evaluate_hoi(args.dataset_file, model, postprocessors, data_loader_val, args.subject_category_id, device)
             return
-        else: #TODO:delete?
+        else:
             test_stats, coco_evaluator = evaluate(model, criterion, postprocessors,
                                                   data_loader_val, base_ds, device, args.output_dir)
             if args.output_dir:
                 utils.save_on_master(coco_evaluator.coco_eval["bbox"].eval, output_dir / "eval.pth")
             return
+        '''
 ############################## start a new wandb run to track this script
     if args.rank==0 and args.wandb:
         wandb.init(
@@ -237,7 +249,10 @@ def main(args):
             # track hyperparameters and run metadata
             config=args
         )
-        wandb.config.update({"num_parameters":n_parameters})
+        wandb.config.update({
+                    "num_parameters":n_parameters,
+                    "model":"CDN"
+                })
 ##########################
 
 #####timing
@@ -257,6 +272,8 @@ def main(args):
             model, criterion, data_loader_train, optimizer, device, epoch,
             args.clip_max_norm)
         lr_scheduler.step()
+
+        #######保存checkpoint
         if args.output_dir:
             checkpoint_paths = [output_dir / 'checkpoint.pth'] #不断覆盖的checkpoint
             # extra checkpoint before LR drop and every 100 epochs
@@ -271,6 +288,9 @@ def main(args):
                     'args': args,
                 }, checkpoint_path)
 
+        test_stats = evaluate_hoi(args.dataset_file, model, postprocessors, data_loader_val, args.subject_category_id, device)
+
+        '''TODO:delete?
         if args.hoi:
             test_stats = evaluate_hoi(args.dataset_file, model, postprocessors, data_loader_val, args.subject_category_id, device)
             coco_evaluator = None
@@ -278,7 +298,7 @@ def main(args):
             test_stats, coco_evaluator = evaluate(
                 model, criterion, postprocessors, data_loader_val, base_ds, device, args.output_dir
             )
-
+        '''
         log_stats = {**{f'train_{k}': v for k, v in train_stats.items()},
                      **{f'test_{k}': v for k, v in test_stats.items()},
                      'epoch': epoch,
@@ -312,8 +332,6 @@ def main(args):
     print(total_time_str)
     if args.wandb and utils.is_main_process(): #args.rank==0
         wandb.log({"total_time":total_time_str})
-    #with (output_dir / "time.txt").open("a") as f:
-        #f.write(total_time_str+"\n")
 
     if args.rank==0 and args.wandb:
         wandb.save(f'{output_dir}/*',policy='end')
