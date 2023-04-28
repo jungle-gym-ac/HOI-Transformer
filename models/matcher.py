@@ -145,8 +145,11 @@ class HungarianMatcherHOI(nn.Module):
         return [(torch.as_tensor(i, dtype=torch.int64), torch.as_tensor(j, dtype=torch.int64)) for i, j in indices]
 
 def build_matcher(args):
+    return HungarianMatcher(cost_class=args.set_cost_class, cost_bbox=args.set_cost_bbox, cost_giou=args.set_cost_giou)
+    '''TODO:delete
     if args.hoi:
         return HungarianMatcherHOI(cost_obj_class=args.set_cost_obj_class, cost_verb_class=args.set_cost_verb_class,
                                    cost_bbox=args.set_cost_bbox, cost_giou=args.set_cost_giou)
     else:
         return HungarianMatcher(cost_class=args.set_cost_class, cost_bbox=args.set_cost_bbox, cost_giou=args.set_cost_giou)
+    '''

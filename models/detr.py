@@ -309,7 +309,14 @@ class MLP(nn.Module):
 
 
 def build(args):
-    ##########DETR TRAINING,  NOT for HOI！
+    """
+    核心入口函数,在main.py中被调用
+    Returns:
+        model, criterion, postprocessors
+    """
+
+    ##########TODO:delete
+    # DETR TRAINING,  NOT for HOI！
     num_classes = 20 if args.dataset_file != 'coco' else 91
     if args.dataset_file == "coco_panoptic":
         num_classes = 250
@@ -320,6 +327,15 @@ def build(args):
 
     transformer = build_transformer(args)
 
+    model = DETRHOI(
+            backbone,
+            transformer,
+            num_obj_classes=args.num_obj_classes,
+            num_verb_classes=args.num_verb_classes,
+            num_queries=args.num_queries,
+            aux_loss=args.aux_loss,
+        )
+    '''TODO: delete
     if args.hoi:
         model = DETRHOI(
             backbone,
@@ -329,7 +345,7 @@ def build(args):
             num_queries=args.num_queries,
             aux_loss=args.aux_loss,
         )
-    else:#DETR TRAINING,  NOT for HOI！
+    else:
         model = DETR(
             backbone,
             transformer,
@@ -339,9 +355,17 @@ def build(args):
         )
         if args.masks:
             model = DETRsegm(model, freeze_detr=(args.frozen_weights is not None))
+    '''
     matcher = build_matcher(args)
     weight_dict = {}
-    if args.hoi:
+    weight_dict['loss_obj_ce'] = args.obj_loss_coef
+    weight_dict['loss_verb_ce'] = args.verb_loss_coef
+    weight_dict['loss_sub_bbox'] = args.bbox_loss_coef#subject bounding box
+    weight_dict['loss_obj_bbox'] = args.bbox_loss_coef#object bounding box
+    weight_dict['loss_sub_giou'] = args.giou_loss_coef
+    weight_dict['loss_obj_giou'] = args.giou_loss_coef
+
+    '''if args.hoi:
         weight_dict['loss_obj_ce'] = args.obj_loss_coef
         weight_dict['loss_verb_ce'] = args.verb_loss_coef
         weight_dict['loss_sub_bbox'] = args.bbox_loss_coef#subject bounding box
@@ -355,25 +379,40 @@ def build(args):
         if args.masks:
             weight_dict["loss_mask"] = args.mask_loss_coef
             weight_dict["loss_dice"] = args.dice_loss_coef
+    '''
+
+    '''原论文注释
     # TODO this is a hack
+    '''
+
     if args.aux_loss:
         aux_weight_dict = {}
         for i in range(args.dec_layers - 1):
             aux_weight_dict.update({k + f'_{i}': v for k, v in weight_dict.items()})
         weight_dict.update(aux_weight_dict)
 
+    losses = ['obj_labels', 'verb_labels', 'sub_obj_boxes', 'obj_cardinality']
+    criterion = SetCriterionHOI(args.num_obj_classes, args.num_queries, args.num_verb_classes, matcher=matcher,
+                                weight_dict=weight_dict, eos_coef=args.eos_coef, losses=losses,
+                                verb_loss_type=args.verb_loss_type)
+
+    '''
     if args.hoi:
         losses = ['obj_labels', 'verb_labels', 'sub_obj_boxes', 'obj_cardinality']
         criterion = SetCriterionHOI(args.num_obj_classes, args.num_queries, args.num_verb_classes, matcher=matcher,
                                     weight_dict=weight_dict, eos_coef=args.eos_coef, losses=losses,
                                     verb_loss_type=args.verb_loss_type)
-    else: #DETR training
+    else: #TODO:DETR training delete!
         losses = ['labels', 'boxes', 'cardinality']
         if args.masks:
             losses += ["masks"]
         criterion = SetCriterion(num_classes, matcher=matcher, weight_dict=weight_dict,
                                  eos_coef=args.eos_coef, losses=losses)
     criterion.to(device)
+    '''
+    postprocessors = {'hoi': PostProcessHOI(args.subject_category_id)}
+
+    '''TODO:delete
     if args.hoi:
         postprocessors = {'hoi': PostProcessHOI(args.subject_category_id)}
     else:
@@ -383,5 +422,5 @@ def build(args):
             if args.dataset_file == "coco_panoptic":
                 is_thing_map = {i: i <= 90 for i in range(201)}
                 postprocessors["panoptic"] = PostProcessPanoptic(is_thing_map, threshold=0.85)
-
+    '''
     return model, criterion, postprocessors
