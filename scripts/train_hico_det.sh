@@ -3,7 +3,6 @@ python -m torch.distributed.launch \
 --use_env \
 main.py \
         --output_dir logs/hico \
-        --hoi \
         \
         \
         --dataset_file hico \
