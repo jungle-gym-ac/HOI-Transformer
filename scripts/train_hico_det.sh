@@ -11,7 +11,7 @@ main.py \
         --num_verb_classes 117 \
         \
         \
-        --epochs 150\
+        --epochs 1\
         --wandb \
         --backbone resnet50 \
         --pretrained params/detr-r50-pre.pth \

@@ -19,8 +19,8 @@ import itertools
 import torch
 
 import util.misc as utils
-from datasets.coco_eval import CocoEvaluator
-from datasets.panoptic_eval import PanopticEvaluator
+#from datasets.coco_eval import CocoEvaluator
+#from datasets.panoptic_eval import PanopticEvaluator
 from datasets.hico_eval import HICOEvaluator
 from datasets.vcoco_eval import VCOCOEvaluator
 

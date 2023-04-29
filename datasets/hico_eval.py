@@ -192,7 +192,7 @@ class HICOEvaluator():
                         min_overlap_gt = min(pred_sub_overlaps[gt_sub_ids.index(gt_hoi['subject_id'])],
                                                 pred_obj_overlaps[gt_obj_ids.index(gt_hoi['object_id'])])
                         if min_overlap_gt > max_overlap:
-                            1 = min_overlap_gt
+                            max_overlap = min_overlap_gt
                             max_gt_hoi = gt_hoi
             triplet = (pred_bboxes[pred_hoi['subject_id']]['category_id'], pred_bboxes[pred_hoi['object_id']]['category_id'],
                         pred_hoi['category_id'])

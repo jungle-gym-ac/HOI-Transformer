@@ -396,6 +396,7 @@ def build(args):
     criterion = SetCriterionHOI(args.num_obj_classes, args.num_queries, args.num_verb_classes, matcher=matcher,
                                 weight_dict=weight_dict, eos_coef=args.eos_coef, losses=losses,
                                 verb_loss_type=args.verb_loss_type)
+    criterion.to(device)
 
     '''
     if args.hoi:
