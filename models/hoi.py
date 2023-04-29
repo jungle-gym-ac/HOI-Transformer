@@ -177,6 +177,8 @@ class SetCriterionHOI(nn.Module):
 
         loss = 0
 
+        ##########实际上是focal loss，超参alpha=0.5, from CenterNet
+        #alpha=1-alpha=0.5, 所以直接省略了该超参
         pos_loss = torch.log(pred) * torch.pow(1 - pred, 2) * pos_inds
         neg_loss = torch.log(1 - pred) * torch.pow(pred, 2) * neg_inds
 

@@ -11,12 +11,6 @@ main.py \
         --num_verb_classes 117 \
         \
         \
-        --set_cost_bbox 2.5 \
-        --set_cost_giou 1 \
-        --bbox_loss_coef 2.5 \
-        --giou_loss_coef 1\
-        \
-        \
         --epochs 150\
         --wandb \
         --backbone resnet50 \
