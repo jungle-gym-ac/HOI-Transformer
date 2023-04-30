@@ -11,6 +11,7 @@ import json
 import random
 #import time
 from pathlib import Path
+import os
 
 import numpy as np
 import torch
@@ -251,7 +252,7 @@ def main(args):
         )
         wandb.config.update({
                     "num_parameters":n_parameters,
-                    "model":"CDN"
+                    "model":"QPIC"
                 })
 ##########################
 
@@ -265,6 +266,7 @@ def main(args):
     '''#original timing
     start_time = time.time()
     '''
+    best_performance = 0
     for epoch in range(args.start_epoch, args.epochs):
         if args.distributed:
             sampler_train.set_epoch(epoch)
@@ -273,7 +275,7 @@ def main(args):
             args.clip_max_norm)
         lr_scheduler.step()
 
-        #######保存checkpoint
+        '''#######保存checkpoint
         if args.output_dir:
             checkpoint_paths = [output_dir / 'checkpoint.pth'] #不断覆盖的checkpoint
             # extra checkpoint before LR drop and every 100 epochs
@@ -287,6 +289,17 @@ def main(args):
                     'epoch': epoch,
                     'args': args,
                 }, checkpoint_path)
+        '''
+        if args.output_dir and epoch == args.epochs - 1:
+            checkpoint_path = os.path.join(output_dir, 'checkpoint_last.pth')
+            utils.save_on_master({
+                'model': model_without_ddp.state_dict(),
+                'optimizer': optimizer.state_dict(),
+                'lr_scheduler': lr_scheduler.state_dict(),
+                'epoch': epoch,
+                'args': args,
+            }, checkpoint_path)
+
 
         test_stats = evaluate_hoi(args.dataset_file, model, postprocessors, data_loader_val, args.subject_category_id, device)
 

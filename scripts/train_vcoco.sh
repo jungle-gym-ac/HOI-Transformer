@@ -17,9 +17,10 @@ main.py \
         --pretrained params/detr-r50-pre-vcoco.pth \
         \
         \
+        --enc_layers 6\
+        --dec_layers 6
         #--no_aux_loss
         #--position_embedding 'sine'\
-          ######### to be tuned
 wandb sync --clean #
 
 python generate_vcoco_official.py \

@@ -11,11 +11,14 @@ main.py \
         --num_verb_classes 117 \
         \
         \
-        --epochs 1\
+        --epochs 150\
         --wandb \
         --backbone resnet50 \
-        --pretrained params/detr-r50-pre.pth \
+        --pretrained params/detr-r50-pre.pth\
         \
-        --position_embedding 'learned' #‘sine’
+        \
+        --enc_layers 3\
+        --dec_layers 3
+        #--position_embedding 'sine' #‘sine’
         #--no_aux_loss  ######### to be tuned
-wandb sync --clean #
+#wandb sync --clean #
